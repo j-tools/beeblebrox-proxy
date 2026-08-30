@@ -4,20 +4,27 @@ A Beeblebrox instance pushes work to a worker by posting a signed envelope to it
 the instance can reach the worker — and a laptop on an office network, or a machine behind a home
 router, cannot be reached from outside.
 
-This sits on an address that **can** be reached, on the same network as the worker, and passes each
+This sits on a machine that **can** be reached, on the same network as the worker, and passes each
 envelope on unchanged.
 
 ```
-  zaphod.beeblebrox.cloud                   proxy.example.com              192.168.1.20:8080
-  ┌──────────────────┐   signed envelope   ┌──────────────┐   the same    ┌──────────────────┐
-  │  the instance    │ ──────────────────▶ │  this        │ ─────────────▶│ beeblebrox-local │
-  │  (dispatcher)    │ ◀────────────────── │              │ ◀─────────────│ (the worker)     │
-  └──────────────────┘   the worker's      └──────────────┘   its answer  └──────────────────┘
-                         own answer
+  the internet                      │  your own network
+                                    │
+  zaphod.beeblebrox.cloud           │   the web server you already have    the laptop
+  ┌────────────────────┐            │   ┌──────────────────────┐          ┌──────────────────┐
+  │ your instance      │ ── POST ──────▶│ this                 │ ── POST ▶│ beeblebrox-local │
+  │ (the dispatcher)   │◀── answer ─────│ (a port forward or a │◀─ answer │ (the worker)     │
+  └────────────────────┘            │   │  DNS record aims     │          │ not reachable    │
+                                    │   │  here)               │          │ from outside     │
+                                    │   └──────────────────────┘          └──────────────────┘
 ```
 
+It is not a hosted thing and there is no `proxy.beeblebrox.cloud`: it goes on whichever box you
+already have facing the internet, at whatever that box is called, in its own vhost or a directory
+under a site it already serves.
+
 The alternative is polling, which the worker already does and which needs no inbound networking at
-all. Use this when you want work pushed — because a poll interval is a delay on every task and a
+all. Use this when you want work pushed — because a poll interval is a delay on every task, and a
 push is not.
 
 ## What it does, and what it deliberately does not
@@ -40,6 +47,11 @@ the instance is told so and does what it would have done anyway.
 **It holds no key.** The envelope names a task and never carries the work; the worker fetches the
 briefing itself with its own API key. So nothing that passes through here is worth reading, and this
 machine — the one deliberately made reachable — is the one with nothing on it.
+
+**It needs no database server.** The whole store is one SQLite file that makes itself on the first
+request: eight settings, a password hash, a session and an append-only log. Nothing relational,
+nothing transactional, a handful of rows a day. Standing up a database server for that would be more
+work than the thing it is forwarding.
 
 **One proxy, one worker.** An envelope names a task, not a machine, so there is nothing in it for a
 proxy to route on. Two workers behind the same router means two of these, on two addresses.
@@ -67,7 +79,7 @@ something being alive on a port.
 Then, on the instance, point the role's webhook dispatcher at this proxy's `/hook.php` instead of at
 the worker. Nothing else about the dispatcher changes — same signing secret, same envelope.
 
-`INSTALL.md` has the whole thing, including the vhost and the database.
+`INSTALL.md` has the whole thing.
 
 ## Running it
 
@@ -85,8 +97,9 @@ deliveries.php    every envelope that has arrived
 delivery.php      one of them in full — what arrived, what came back
 diagnostics.php   every check, plus what to give the dispatcher
 lib/              settings, security, delivery, the log, layout
-db/schema.sql     three tables: settings, deliveries, sessions
-tools/            migrate, selftest
+db/schema.sql     three tables; the application creates them itself
+data/             the SQLite file lives here, and must not be served
+tools/            migrate, selftest, password
 tests/            smoke (no server), hook (against a running one)
 ```
 

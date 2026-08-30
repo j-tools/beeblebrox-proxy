@@ -84,8 +84,9 @@ view_header($first_run ? 'Set a password' : 'Sign in');
     </label>
     <button type="submit">Sign in</button>
   </form>
-  <p class="small muted">Forgotten it? Clear the row from the database and reload this page:
-     <code>DELETE FROM settings WHERE name = 'admin_password_hash';</code></p>
+  <p class="small muted">Forgotten it? Clear the row and reload this page — nothing else is lost,
+     and you will be asked to set a new one:<br>
+     <code>php tools/password.php --forget</code></p>
 <?php endif; ?>
 </div>
 <?php

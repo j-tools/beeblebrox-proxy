@@ -58,12 +58,13 @@ if (!$reachable || !bbl_signed_in()) {
   <?php // The only state in which telling somebody to go and set up a config file is any use.
         // Anyone reading the page below this has plainly already done it — the page would not
         // render at all otherwise. ?>
-  <p class="error">This copy cannot reach its database: <?= h($db_error) ?></p>
+  <p class="error">This copy cannot open its database: <?= h($db_error) ?></p>
   <div class="card">
     <h3 style="margin-top:0">Before this can do anything</h3>
-    <p class="small">Copy <code>config.local.example.php</code> to <code>config.local.php</code> and
-       fill in the database this should use, then load <code>db/schema.sql</code> into it.
-       <code>INSTALL.md</code> has both in full, in sections 2 and 3.</p>
+    <p class="small">There is nothing to install — the database is one SQLite file and it makes
+       itself. Almost always this means the web server is not allowed to write to
+       <code><?= h(dirname(bbl_config()['db_file'])) ?></code>. <code>INSTALL.md</code> section 2 has
+       it, including how to put the file somewhere else.</p>
   </div>
 <?php else: ?>
   <div class="actions">

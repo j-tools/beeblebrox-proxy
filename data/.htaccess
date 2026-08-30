@@ -1,0 +1,2 @@
+# The database holds session ids: serving it would hand somebody a signed-in session.
+Require all denied

@@ -21,16 +21,22 @@ function bbl_config() {
   };
 
   $cfg = [
-    'db_host'     => $env('DB_HOST',     $local['db_host']     ?? '127.0.0.1'),
-    'db_port'     => (int)$env('DB_PORT', $local['db_port']    ?? 3306),
-    'db_user'     => $env('DB_USER',     $local['db_user']     ?? ''),
-    'db_password' => $env('DB_PASSWORD', $local['db_password'] ?? ''),
-    'db_name'     => $env('DB_NAME',     $local['db_name']     ?? ''),
+    // One SQLite file, created on first use. Nothing to install, nothing to grant, and one file to
+    // copy if this ever moves to another machine. It defaults inside the repository because there is
+    // no portable directory outside it that is certain to be writable — which is why data/ ships
+    // with an .htaccess denying it, and why moving this somewhere unservable is the first
+    // suggestion in INSTALL.md for anybody not on Apache.
+    'db_file'     => $env('DB_FILE',     $local['db_file']     ?? __DIR__ . '/data/proxy.sqlite'),
 
-    // The address the instance posts to. Also decides the session cookie's Secure flag, so it is
-    // never derived from the request — this box is the one on a public address, and a forged Host
-    // header must not be able to turn the flag off.
-    'site_url'    => $env('SITE_URL',    $local['site_url']    ?? 'http://proxy.beeblebrox.cloud'),
+    // The address the instance posts to, exactly as it will be called — including a subdirectory, if
+    // this is sharing a web server with other sites, which is the usual way it is installed.
+    //
+    // There is no useful default. This is the one machine here that is deliberately reachable from
+    // outside, and no two installations agree on what it is called; a placeholder that happened to
+    // work would only mean the wrong URL was printed everywhere as the one to give the dispatcher.
+    // It also decides the session cookie's Secure flag and path, and is never derived from the
+    // request — a forged Host header must not be able to turn that flag off.
+    'site_url'    => $env('SITE_URL',    $local['site_url']    ?? 'http://localhost'),
 
     // Wraps the optional signing secret in the database, so a database dump on its own is not a
     // credential breach. Unlike the local worker, this may be left empty: a proxy that does not
@@ -56,6 +62,19 @@ function bbl_env_label() {
   return $host;
 }
 
+// The path this is served under, with slashes at both ends: '/' at the root of its own vhost,
+// '/beeblebrox-proxy/' in a subdirectory.
+//
+// This is a shared web server by definition — it is whichever box you already had that the internet
+// can reach — so this application is very often not alone on its hostname. Cookies are scoped to
+// this path so that signing in here neither sees nor disturbs whatever else lives on the same
+// domain.
+function bbl_cookie_path() {
+  $path = (string)parse_url(bbl_config()['site_url'], PHP_URL_PATH);
+  $path = '/' . trim($path, '/');
+  return $path === '/' ? '/' : $path . '/';
+}
+
 // Where an envelope is posted to reach this proxy. Said in several places — diagnostics, settings,
 // the landing page — and it must be the same string in all of them.
 function bbl_hook_url() {
@@ -63,6 +82,5 @@ function bbl_hook_url() {
 }
 
 function bbl_is_configured() {
-  $cfg = bbl_config();
-  return $cfg['db_name'] !== '' && $cfg['db_user'] !== '';
+  return bbl_config()['db_file'] !== '';
 }

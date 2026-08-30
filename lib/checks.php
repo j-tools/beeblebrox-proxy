@@ -27,23 +27,55 @@ function checks_run($deep = true) {
   $out[] = file_exists(__DIR__ . '/../config.local.php')
     ? check('pass', 'config.local.php is present')
     : check('warn', 'config.local.php is missing',
-        'Fine if DB_HOST and the rest are set as environment variables; otherwise copy ' .
-        'config.local.example.php and fill it in.');
+        'Fine if SITE_URL and the rest are set as environment variables; otherwise copy ' .
+        'config.local.example.php and fill it in. Without one, the address printed here as the one ' .
+        'to give the dispatcher is a guess.');
 
   try {
     db();
-    $out[] = check('pass', 'Database reachable', $cfg['db_name'] . ' on ' . $cfg['db_host']);
-    $tables = db_count("SELECT COUNT(*) FROM information_schema.tables
-                         WHERE table_schema = ? AND table_name IN
-                         ('settings','deliveries','sessions')", [$cfg['db_name']]);
+    $out[] = check('pass', 'The database is there', $cfg['db_file']);
+    $tables = db_count("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'
+                         AND name IN ('settings','deliveries','sessions')");
     $out[] = $tables === 3
       ? check('pass', 'Schema is loaded')
       : check('fail', 'Schema is incomplete',
-          "{$tables} of 3 tables found. Load db/schema.sql, then run tools/migrate.php.");
+          "{$tables} of 3 tables found, which should not be possible — the file is created with all " .
+          'of them. Delete it and let it be made again, or run tools/migrate.php.');
   } catch (Throwable $e) {
-    $out[] = check('fail', 'Database unreachable', $e->getMessage());
+    $out[] = check('fail', 'The database cannot be opened', $e->getMessage() .
+      ' It is created on first use, so this is almost always the web server not being allowed to ' .
+      'write to ' . dirname($cfg['db_file']) . '.');
     // Nothing below this reads without a database, so there is no point asking.
     return $out;
+  }
+
+  // The file holds session ids, so serving it is handing somebody a signed-in session — which is why
+  // this is a failure and not a note. Only meaningful when the file is under the directory being
+  // served, which is the default and not a requirement.
+  $docroot = realpath(__DIR__ . '/..');
+  $db_real = realpath($cfg['db_file']);
+  if ($deep && $docroot && $db_real && str_starts_with($db_real, $docroot)) {
+    $relative = str_replace('\\', '/', substr($db_real, strlen($docroot)));
+    $url = rtrim($cfg['site_url'], '/') . $relative;
+    $served = deliver_get($url, 8);
+    if ($served['status'] >= 200 && $served['status'] < 300) {
+      $out[] = check('fail', 'The database file is downloadable',
+        'It answered HTTP ' . $served['status'] . ' over the web. It holds session ids, so anybody ' .
+        'who fetches it is signed in here. Deny the data/ directory in your web server, or move ' .
+        'db_file outside the directory being served.', $url);
+    } elseif ($served['status'] === 0) {
+      // Nothing answered, which is not the same as a refusal and must not be reported as one. The
+      // usual cause is benign and specific: php -S is single-threaded, so it cannot serve this
+      // request while it is still busy producing this page. On a real web server it answers.
+      $out[] = check('warn', 'Could not tell whether the database file is served',
+        'Asking for it over the web got no answer at all (' . $served['error'] . '). That is ' .
+        'expected on php -S, which is single-threaded and cannot answer a second request while it ' .
+        'is still building this page — but on the server this actually runs on, check it by hand.',
+        $url);
+    } else {
+      $out[] = check('pass', 'The database file is not served',
+        'Asked for over the web, it answered HTTP ' . $served['status'] . '.');
+    }
   }
 
   $out[] = setting('admin_password_hash') !== ''
@@ -53,16 +85,22 @@ function checks_run($deep = true) {
         'at a different worker.', 'settings.php');
 
   // --- the site's own address --------------------------------------------------------------------
-  // Not cosmetic: the cookie's Secure flag is decided from it, and it is the address printed
-  // everywhere as the one to give the dispatcher. A default left in place is a working proxy nobody
-  // can find.
-  if (str_starts_with($cfg['site_url'], 'https://')) {
+  // Not cosmetic, and the one setting that cannot be checked by asking anything: it decides the
+  // cookie's Secure flag and path, and it is the address printed everywhere as the one to give the
+  // dispatcher. A proxy nobody outside can name is a proxy nobody outside can reach.
+  $site_host = (string)parse_url($cfg['site_url'], PHP_URL_HOST);
+  if (in_array($site_host, ['localhost', '127.0.0.1', '::1', ''], true)) {
+    $out[] = check('fail', 'SITE_URL is still a local address', $cfg['site_url'] .
+      ' — that is this machine talking to itself. It has to be the address your Beeblebrox instance ' .
+      'calls from the internet, written exactly as it will call it, subdirectory and all. Until it ' .
+      'is, the URL to hand the dispatcher is being printed wrong on every page here.');
+  } elseif (str_starts_with($cfg['site_url'], 'https://')) {
     $out[] = check('pass', 'SITE_URL is an https address', $cfg['site_url']);
   } else {
     $out[] = check('warn', 'SITE_URL is not https', $cfg['site_url'] .
-      ' — the session cookie for these pages is sent without the Secure flag, which matters on a ' .
-      'machine that is reachable from outside. It also has to be the address your instance calls, ' .
-      'or the URL shown on the settings page is the wrong one to give the dispatcher.');
+      ' — the envelope is signed and carries no work, so this is not a disaster, but the password ' .
+      'for these pages crosses the internet in the clear and the session cookie goes without its ' .
+      'Secure flag.');
   }
 
   // --- who this relays for -----------------------------------------------------------------------
@@ -146,8 +184,13 @@ function checks_run($deep = true) {
     } elseif ($counts['ok'] === 0) {
       // The case worth a warning of its own: something is arriving and none of it is getting
       // through, which looks exactly like a quiet day from every count on the dashboard.
-      $out[] = check('warn', 'Everything today was refused or failed',
-        $counts['bad'] . ' envelope(s) arrived and none reached the worker.', 'deliveries.php?show=problems');
+      //
+      // "Not accepted" rather than "did not reach the worker", because some of them may well have
+      // reached it and been refused there — and sending somebody to look at the network when the
+      // answer is a mismatched secret is the wrong first place.
+      $out[] = check('warn', 'Nothing today was accepted',
+        $counts['bad'] . ' envelope(s) arrived and none came back accepted. The list says which were ' .
+        'refused here and which the worker refused.', 'deliveries.php?show=problems');
     } else {
       $out[] = check('pass', "{$counts['ok']} through today",
         $counts['bad'] > 0 ? $counts['bad'] . ' did not get through.' : 'None failed.',
@@ -161,7 +204,8 @@ function checks_run($deep = true) {
 // The same "5m ago" the pages use, without pulling in the whole view layer — checks_run is called
 // from the CLI too, where nothing has been rendered and nothing should be.
 function view_ago_plain($datetime) {
-  $mins = (int)db_one('SELECT TIMESTAMPDIFF(MINUTE, ?, NOW()) AS m', [$datetime])['m'];
+  $mins = (int)db_one("SELECT CAST((julianday('now') - julianday(?)) * 1440 AS INTEGER) AS m",
+    [$datetime])['m'];
   if ($mins < 1)    { return 'just now'; }
   if ($mins < 60)   { return $mins . ' minutes ago'; }
   if ($mins < 1440) { return intdiv($mins, 60) . ' hours ago'; }

@@ -108,9 +108,12 @@ function setting_set($name, $value) {
   if ($is_secret && (string)$value !== '') {
     $value = secrets_encrypt($value);
   }
+  // updated_at is set here rather than by the table, because SQLite has no ON UPDATE CURRENT_TIMESTAMP
+  // — its default only applies to the INSERT, and the conflict path is an update.
   db_exec(
-    'INSERT INTO settings (name, value, is_secret) VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE value = VALUES(value), is_secret = VALUES(is_secret)',
+    "INSERT INTO settings (name, value, is_secret) VALUES (?, ?, ?)
+     ON CONFLICT(name) DO UPDATE SET value = excluded.value, is_secret = excluded.is_secret,
+                                     updated_at = datetime('now')",
     [$name, (string)$value, $is_secret ? 1 : 0]
   );
   settings_raw(true);

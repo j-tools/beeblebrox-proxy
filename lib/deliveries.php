@@ -104,7 +104,7 @@ function delivery_counts_today() {
            OR response_status >= 300) AS bad,
        COUNT(*) AS total
      FROM deliveries
-     WHERE created_at > NOW() - INTERVAL 1 DAY");
+     WHERE created_at > datetime('now', '-1 day')");
   return [
     'ok'    => (int)($row['ok'] ?? 0),
     'bad'   => (int)($row['bad'] ?? 0),

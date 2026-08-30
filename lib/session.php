@@ -30,7 +30,8 @@ function bbl_session_store() {
       }
       db_exec(
         'INSERT INTO sessions (id, payload, last_active) VALUES (?, ?, ?)
-           ON DUPLICATE KEY UPDATE payload = VALUES(payload), last_active = VALUES(last_active)',
+           ON CONFLICT(id) DO UPDATE SET payload = excluded.payload,
+                                         last_active = excluded.last_active',
         [$id, $payload, time()]
       );
       return true;
@@ -56,14 +57,21 @@ function bbl_session_start() {
   }
   $cfg = bbl_config();
 
-  // Secure is decided from the configured site URL, never from $_SERVER['HTTPS']. Behind a tunnel
-  // that terminates TLS elsewhere, that test is false on exactly the setup that needs the flag.
+  // Secure is decided from the configured site URL, never from $_SERVER['HTTPS']. Behind a reverse
+  // proxy that terminates TLS elsewhere, that test is false on exactly the setup that needs the flag.
   $cookie = [
-    'path'     => '/',
+    'path'     => bbl_cookie_path(),
     'secure'   => str_starts_with($cfg['site_url'], 'https://'),
     'httponly' => true,
     'samesite' => 'Lax',
   ];
+
+  // Named, and not PHPSESSID. This lives on whichever box the internet can already reach, which
+  // means it is usually sharing a hostname with other PHP applications — and a shared cookie name is
+  // a shared session id. The handler below would then be handed another application's id, find no
+  // row for it and quietly sign you out, while the other application would be handed one of these
+  // and do the same. Two apps mystifying each other is a long afternoon.
+  session_name('bblproxy');
 
   ini_set('session.gc_maxlifetime', (string)bbl_session_lifetime());
   ini_set('session.use_strict_mode', '1');
@@ -149,7 +157,7 @@ function bbl_pre_auth_start() {
     $token = bin2hex(random_bytes(32));
     setcookie('bbl_form', $token, [
       'expires'  => time() + 3600,
-      'path'     => '/',
+      'path'     => bbl_cookie_path(),
       'secure'   => str_starts_with(bbl_config()['site_url'], 'https://'),
       'httponly' => true,
       'samesite' => 'Lax',
