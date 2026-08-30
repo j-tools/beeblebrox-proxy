@@ -52,6 +52,7 @@ function stub_setting($name, $value) {
   settings_raw(true);
 }
 require_once __DIR__ . '/../lib/settings.php';
+require_once __DIR__ . '/../lib/deliver.php';
 
 echo "instance_normalize — the name of an instance is enough\n";
 is_same('https://zaphod.beeblebrox.cloud', instance_normalize('zaphod'), 'a bare name becomes a URL');
@@ -116,6 +117,16 @@ is_true(in_array('X-Beeblebrox-Timestamp: 1724930000', $headers, true), 'so does
 is_same(2, count($headers), 'and nothing else — Host and Content-Length describe this hop, not the next');
 is_same([], passthrough_headers(['HTTP_X_BEEBLEBROX_EVIL' => "a\r\nX-Injected: yes"]),
   'a value carrying a newline is dropped rather than repaired');
+
+echo "\ndeliver_headers — what the worker sees is what the instance sent\n";
+$sent = deliver_headers(['X-Beeblebrox-Signature: sha256=abc'], '203.0.113.7',
+  'application/json; charset=utf-8');
+is_true(in_array('Content-Type: application/json; charset=utf-8', $sent, true),
+  'the incoming content type is repeated, not replaced with a tidier one');
+is_true(in_array('X-Forwarded-For: 203.0.113.7', $sent, true),
+  "the instance's address survives a hop that would otherwise erase it");
+is_true(in_array('Content-Type: application/json', deliver_headers([], '', ''), true),
+  'and JSON is assumed only when there was no content type at all');
 
 echo "\ndelivery_outcome — three ways to fail, and they send you to three different places\n";
 $base = ['forwarded' => 1, 'response_status' => 202];

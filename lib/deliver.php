@@ -48,13 +48,20 @@ function deliver_post($url, $body, array $headers, $timeout_seconds) {
 
 // The headers this proxy adds on top of the ones it passes through.
 //
-// Content-Type is restated because the platform sends JSON and a request without it can be read as
-// form data at the far end. X-Forwarded-For carries the instance's own address, which is otherwise
-// lost — everything the worker sees comes from this machine, so its own allow list and its own log
-// would show one address forever.
-function deliver_headers(array $passthrough, $remote_addr) {
+// The incoming Content-Type is repeated rather than replaced with a canonical one, because the
+// promise this makes is that the worker sees what the instance sent. It falls back to JSON only when
+// there was none, since a request without one can be read as form data at the far end.
+//
+// X-Forwarded-For carries the instance's own address, which is otherwise lost — everything the
+// worker sees comes from this machine, so its own allow list and its own log would show one address
+// forever.
+function deliver_headers(array $passthrough, $remote_addr, $content_type = '') {
+  $content_type = trim((string)$content_type);
+  if ($content_type === '' || strpbrk($content_type, "\r\n") !== false) {
+    $content_type = 'application/json';
+  }
   $headers = array_merge([
-    'Content-Type: application/json',
+    'Content-Type: ' . $content_type,
     'Accept: application/json',
     'User-Agent: beeblebrox-proxy/1',
     // curl otherwise waits for a 100-continue on a body over 1KB, which a small PHP receiver never

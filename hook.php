@@ -130,7 +130,7 @@ if ($target === '') {
 $result = deliver_post(
   $target,
   $body,
-  deliver_headers(passthrough_headers($_SERVER), $remote),
+  deliver_headers(passthrough_headers($_SERVER), $remote, $_SERVER['CONTENT_TYPE'] ?? ''),
   setting_int('deliver_timeout', 15)
 );
 delivery_forwarded($delivery_id, $target, $result);
