@@ -1,0 +1,6 @@
+beeblebrox-proxy
+commit $Format:%H$
+built  $Format:%cs$
+
+Downloaded as a zip? That is the commit it was built from. Working in a checkout instead? These
+placeholders are only filled in by the zip build, so ask git rather than this file.
