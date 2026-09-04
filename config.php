@@ -8,6 +8,10 @@
 // Beeblebrox this relays for, and which worker it relays to — lives in the database and is edited on
 // the settings page, because somebody standing this up should not have to open a PHP file.
 
+// First, and before anything else can fail in a way that only says "500". Every entry point loads
+// this file, so this is the one place that guarantees the check runs.
+require_once __DIR__ . '/lib/preflight.php';
+
 function bbl_config() {
   static $cfg = null;
   if ($cfg !== null) {

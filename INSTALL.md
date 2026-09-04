@@ -15,8 +15,12 @@ the worker.
                                     │   └──────────────────────┘          └──────────────────┘
 ```
 
-It needs PHP 8.1 or newer with `curl`, `openssl` and `pdo_sqlite` — all three are in a default PHP
-build. There is no database server, no scheduled task, no queue and no worker process.
+It needs PHP 8.1 or newer with `curl`, `openssl`, `mbstring` and `pdo_sqlite` — all four are in a
+default PHP build. There is no database server, no scheduled task, no queue and no worker process.
+
+It refuses to start below PHP 8.0 rather than failing at the first missing function, and says which
+requirement is missing in plain words. If you get a page telling you the PHP version is wrong, most
+hosting panels let you pick the version per site and that is usually the whole fix.
 
 If you are wondering whether you need this at all: you do not, if the worker is happy polling. The
 worker asks the instance for work on its own and needs nothing inbound. This is for when you want

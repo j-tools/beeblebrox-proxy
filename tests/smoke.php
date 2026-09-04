@@ -54,7 +54,16 @@ function stub_setting($name, $value) {
 require_once __DIR__ . '/../lib/settings.php';
 require_once __DIR__ . '/../lib/deliver.php';
 
-echo "instance_normalize — the name of an instance is enough\n";
+echo "preflight — the machine this is running on can actually run it\n";
+is_same(array(), bbl_preflight_problems(),
+  'nothing missing here, so a healthy server is never told it is broken');
+// The list is the contract with INSTALL.md and the download page. A requirement added to one and
+// not the others is how somebody ends up debugging a fatal that was supposed to be a sentence.
+foreach (array('pdo_sqlite', 'curl', 'mbstring', 'openssl') as $needed) {
+  is_true(extension_loaded($needed), "{$needed} is checked for and is present");
+}
+
+echo "\ninstance_normalize — the name of an instance is enough\n";
 is_same('https://zaphod.beeblebrox.cloud', instance_normalize('zaphod'), 'a bare name becomes a URL');
 is_same('https://zaphod.beeblebrox.cloud', instance_normalize('  ZAPHOD '), 'trimmed and lowercased');
 is_same('https://bb.example.com', instance_normalize('bb.example.com'), 'a hostname gets https');
