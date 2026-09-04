@@ -15,12 +15,23 @@ the worker.
                                     │   └──────────────────────┘          └──────────────────┘
 ```
 
-It needs PHP 8.1 or newer with `curl`, `openssl`, `mbstring` and `pdo_sqlite` — all four are in a
+It needs **PHP 7.3 or newer** with `curl`, `openssl`, `mbstring` and `pdo_sqlite` — all four are in a
 default PHP build. There is no database server, no scheduled task, no queue and no worker process.
 
-It refuses to start below PHP 8.0 rather than failing at the first missing function, and says which
-requirement is missing in plain words. If you get a page telling you the PHP version is wrong, most
-hosting panels let you pick the version per site and that is usually the whole fix.
+7.3 rather than something newer on purpose: this goes on whichever box you already have facing the
+internet, and those are frequently not new. A Debian 10 or 11 web server is PHP 7.3 or 7.4, and
+there is nothing in a webhook relay that needs anything younger. The two PHP 8 functions this used
+to depend on are polyfilled in `lib/preflight.php`.
+
+7.3 is where it stops, and the reason is one line of `lib/session.php`: `setcookie()` takes an
+options array from 7.3, which is how the `SameSite` attribute gets set. Going lower would mean
+smuggling that through the path argument as a string hack, and a cookie attribute that keeps this
+application's session out of other sites' requests is not worth dropping for a PHP that has been
+end-of-life since 2019.
+
+If something is missing it says so in plain words on the first page you open, rather than failing at
+the first call to a function it does not have. Most hosting panels let you pick the PHP version per
+site, and that is usually the whole fix.
 
 If you are wondering whether you need this at all: you do not, if the worker is happy polling. The
 worker asks the instance for work on its own and needs nothing inbound. This is for when you want

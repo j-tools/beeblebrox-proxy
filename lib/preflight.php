@@ -1,5 +1,6 @@
 <?php
-// What this needs from PHP, checked before anything tries to use it.
+// What this needs from PHP: checked before anything tries to use it, and filled in where filling it
+// in is honest.
 //
 // Written in PHP 5 syntax on purpose, and required first thing by config.php, which every entry
 // point loads. That ordering is the whole point: nothing in this application uses syntax newer than
@@ -7,18 +8,39 @@
 // calls a function it does not have. On a production server, where display_errors is off, that is a
 // blank 500 on the first page somebody opens, with the reason only in a log they may not have.
 //
-// So the requirements are stated here, in words, before they can be discovered as a crash.
+// The floor is deliberately low. This installs on whichever box somebody already has facing the
+// internet, and those are frequently not new — a Debian 10 or 11 web server is PHP 7.3 or 7.4, and
+// there is nothing in a webhook relay that needs anything younger.
+
+// --- what 8.0 added that this actually uses, which is two string functions -------------------------
+//
+// Polyfilled rather than made a requirement. They are the only reason this would not run on PHP 7,
+// they are four lines, and the alternative was turning away every server older than 2020 over
+// str_starts_with.
+
+if (!function_exists('str_starts_with')) {
+  function str_starts_with($haystack, $needle) {
+    return strncmp($haystack, $needle, strlen($needle)) === 0;
+  }
+}
+
+if (!function_exists('str_contains')) {
+  function str_contains($haystack, $needle) {
+    return $needle === '' || strpos($haystack, $needle) !== false;
+  }
+}
 
 function bbl_preflight_problems() {
   $problems = array();
 
-  // 8.0 for str_starts_with and str_contains, which are called on the very first page view. 8.1 is
-  // what the documentation asks for and what this is tested on; 8.0 is where it stops being a
-  // fatal, so that is the honest line to draw for refusing to start.
-  if (version_compare(PHP_VERSION, '8.0', '<')) {
-    $problems[] = 'This needs PHP 8.0 or newer, and 8.1 is what it is tested on. This server is '
-      . 'running PHP ' . PHP_VERSION . '. Most hosting panels let you pick the version per site, '
-      . 'and that is usually all this takes.';
+  // 7.3 is where setcookie() and session_set_cookie_params() take an options array, which is how the
+  // SameSite attribute is set. Going lower would mean smuggling SameSite through the path argument
+  // as a string hack, and a cookie attribute that keeps this application's session out of other
+  // sites' requests is not something to drop in order to support a PHP that has been end-of-life
+  // since 2019.
+  if (version_compare(PHP_VERSION, '7.3', '<')) {
+    $problems[] = 'This needs PHP 7.3 or newer. This server is running PHP ' . PHP_VERSION . '. '
+      . 'Most hosting panels let you pick the version per site, and that is usually all this takes.';
   }
 
   $needed = array(

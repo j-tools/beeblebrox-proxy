@@ -57,6 +57,18 @@ require_once __DIR__ . '/../lib/deliver.php';
 echo "preflight — the machine this is running on can actually run it\n";
 is_same(array(), bbl_preflight_problems(),
   'nothing missing here, so a healthy server is never told it is broken');
+
+// On PHP 8 these are the built-ins and this proves nothing. On PHP 7 they are the polyfills, and
+// this is the only test that matters — which is exactly the platform nobody here can run the suite
+// on, so it is written to be right when it gets there. The empty-needle cases are the ones a
+// hand-written str_contains gets wrong.
+is_true(str_starts_with('https://x.test', 'https://'), 'str_starts_with finds a prefix');
+is_same(false, str_starts_with('http://x', 'https://'), 'and rejects one that is not there');
+is_true(str_starts_with('abc', ''), 'an empty needle always starts a string');
+is_same(false, str_starts_with('', 'a'), 'and an empty haystack starts with nothing');
+is_true(str_contains('a/b', '/'), 'str_contains finds a substring');
+is_true(str_contains('abc', ''), 'an empty needle is always contained');
+is_same(false, str_contains('abc', 'd'), 'and a missing one is not');
 // The list is the contract with INSTALL.md and the download page. A requirement added to one and
 // not the others is how somebody ends up debugging a fatal that was supposed to be a sentence.
 foreach (array('pdo_sqlite', 'curl', 'mbstring', 'openssl') as $needed) {

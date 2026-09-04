@@ -30,10 +30,17 @@ function db() {
   $pdo = new PDO('sqlite:' . $file, null, null, [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    // Values come back as the types they were stored as, so a count is an int and a comparison
-    // against one behaves.
-    PDO::ATTR_STRINGIFY_FETCHES  => false,
   ]);
+
+  // Values come back as the types they were stored as rather than all as strings. This is a
+  // convenience, not something anything depends on — every caller that compares or does arithmetic
+  // casts first — which is why it is set separately and allowed to fail. Before PHP 8.1 the SQLite
+  // driver returned everything as a string and did not accept this at all, and refusing to start
+  // over a nicety would be the wrong trade.
+  try {
+    $pdo->setAttribute(PDO::ATTR_STRINGIFY_FETCHES, false);
+  } catch (Throwable $e) {
+  }
 
   // A write while a page is reading would otherwise fail outright rather than wait. Both matter
   // here for the same reason: a delivery arriving while somebody has the deliveries page open is the
@@ -41,6 +48,18 @@ function db() {
   $pdo->exec('PRAGMA journal_mode = WAL');
   $pdo->exec('PRAGMA busy_timeout = 5000');
   $pdo->exec('PRAGMA foreign_keys = ON');
+
+  // Saving a setting and writing a session both use INSERT ... ON CONFLICT DO UPDATE, which SQLite
+  // learned in 3.24 (2018). An older library parses everything else here happily and then fails on
+  // the first setting anybody saves, which is a long way from the cause. It is the library PHP was
+  // built against rather than anything installed separately, so this is asked once, here.
+  $sqlite = $pdo->query('SELECT sqlite_version()')->fetchColumn();
+  if (version_compare($sqlite, '3.24', '<')) {
+    throw new RuntimeException(
+      "This PHP is built against SQLite {$sqlite}, and this needs 3.24 or newer — settings are " .
+      'saved with ON CONFLICT DO UPDATE, which older versions cannot parse. A newer PHP is the ' .
+      'usual fix, since the library comes with it.');
+  }
 
   if ($fresh) {
     db_install($pdo);
