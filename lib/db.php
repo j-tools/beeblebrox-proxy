@@ -13,6 +13,56 @@
 // Every query in the application goes through these helpers, so there is exactly one place where
 // values are bound and no code path where a value can reach SQL unbound.
 
+// Why SQLite could not open a file, in words. Everything here is a question about the filesystem, so
+// it holds whether or not PDO said anything useful — which it does not.
+function db_open_diagnosis($file) {
+  $dir = dirname($file);
+  $said = [];
+
+  if (!is_dir($dir)) {
+    // Naming the parent is the actionable half: a directory that cannot be created almost always
+    // means its parent is not writable by this account.
+    $parent = dirname($dir);
+    $said[] = "the directory {$dir} does not exist and could not be created";
+    $said[] = is_dir($parent)
+      ? "its parent {$parent} " . (is_writable($parent) ? 'is writable, so something else refused' : 'is not writable')
+      : "and its parent {$parent} is not there either";
+  } elseif (!is_writable($dir)) {
+    $said[] = "the directory {$dir} is not writable, and SQLite writes -wal and -shm files beside " .
+      'the database as well as the database itself';
+  } else {
+    $said[] = "the directory {$dir} exists and is writable";
+  }
+
+  if (!is_dir($dir)) {
+    // No point discussing the file when the directory it would sit in does not exist.
+  } elseif (is_dir($file)) {
+    $said[] = 'but the database path is a directory, not a file';
+  } elseif (file_exists($file)) {
+    $said[] = is_writable($file)
+      ? 'the file exists and is writable'
+      : 'the file exists but is not writable';
+  } else {
+    $said[] = 'the file does not exist yet, which is normal — it is created on first use';
+  }
+
+  // Who to grant it to. The account the web server runs as is the thing somebody needs to name in a
+  // chown or a Windows permission dialog, and it is never the account that unpacked the zip.
+  $user = null;
+  if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+    $info = @posix_getpwuid(posix_geteuid());
+    $user = $info['name'] ?? null;
+  }
+  if ($user === null) {
+    $user = getenv('USERNAME') ?: getenv('USER') ?: @get_current_user();
+  }
+  if ($user !== '' && $user !== false && $user !== null) {
+    $said[] = "this PHP is running as '{$user}', which is the account that needs to be allowed to " .
+      'write there';
+  }
+
+  return implode('; ', $said) . '.';
+}
 // Single connection per request, opened on first use, with the schema created if it is not there.
 function db() {
   static $pdo = null;
@@ -23,14 +73,27 @@ function db() {
 
   $dir = dirname($file);
   if (!is_dir($dir) && !@mkdir($dir, 0770, true) && !is_dir($dir)) {
-    throw new RuntimeException("Cannot create the directory for the database: {$dir}");
+    throw new RuntimeException('Cannot create the directory for the database — ' .
+      db_open_diagnosis($file));
   }
   $fresh = !file_exists($file);
 
-  $pdo = new PDO('sqlite:' . $file, null, null, [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-  ]);
+  // SQLite answers "unable to open database file" to every reason it could not: the directory is not
+  // writable, the file is not writable, the path is not a file, the parent is not traversable. Ten
+  // words that name none of them, on the one screen somebody sees before anything works.
+  //
+  // So the reasons are asked here and named. The web server almost never runs as the account that
+  // unpacked the zip, which is why writability is asked about the directory as well as the file —
+  // SQLite needs to create -wal and -shm beside the database, so a writable file in a read-only
+  // directory still fails.
+  try {
+    $pdo = new PDO('sqlite:' . $file, null, null, [
+      PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+      PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+  } catch (Throwable $e) {
+    throw new RuntimeException($e->getMessage() . ' — ' . db_open_diagnosis($file), 0, $e);
+  }
 
   // Values come back as the types they were stored as rather than all as strings. This is a
   // convenience, not something anything depends on — every caller that compares or does arithmetic
