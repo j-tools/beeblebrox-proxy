@@ -112,6 +112,35 @@ function view_menu_items() {
   return $items;
 }
 
+// The identity block, rendered once and used in the bar and in the drawer both.
+//
+// It was written twice, and two copies of a thing that has to match is how they stop matching: the
+// drawer had the wording without the mark, and different markup around it. One function instead, so
+// there is nothing to keep in step — and the same block as the worker's and the instance's, since a
+// person moving between the three windows should not have to notice which one they are in.
+//
+// The mark and the wording are one link, and it leads out of here rather than to the dashboard: the
+// instance is somewhere else and is the thing somebody in this window wants to get back to. Before
+// there is an instance the public site is the only honest answer to what this is.
+function view_brand_block() {
+  $company = view_company();
+  ?>
+  <a class="brand-block" href="<?= h(view_home_url()) ?>" target="_blank" rel="noopener"
+     title="<?= h($company === '' ? 'What Beeblebrox is' : 'Open ' . $company) ?>">
+    <img class="brand-mark" src="assets/favicon-32.png" width="28" height="28" alt="Beeblebrox">
+    <span class="brand">
+<?php if ($company !== ''): ?>
+      <span class="brand-kicker">Relaying for</span>
+      <span class="brand-company"><?= h($company) ?> <span class="muted">Beeblebrox</span></span>
+<?php else: ?>
+      <span class="brand-kicker">Beeblebrox</span>
+      <span class="brand-company">Webhook proxy</span>
+<?php endif; ?>
+    </span>
+  </a>
+<?php
+}
+
 function view_header($title, $signed_in = false) {
   $here = basename($_SERVER['SCRIPT_NAME'] ?? '');
   // The last day rather than all time. A proxy that has been up for a month would otherwise show a
@@ -132,26 +161,7 @@ function view_header($title, $signed_in = false) {
 <?php if ($signed_in): ?>
   <label for="drawer-toggle" class="hamburger" title="Menu" aria-label="Menu"><span></span></label>
 <?php endif; ?>
-<?php
-  // The mark and the wording are one link, because they name one thing. It leads out of here rather
-  // than to the dashboard: the instance is somewhere else and is the thing somebody in this window
-  // wants to get back to, and before there is an instance the public site is the only honest answer
-  // to what this is.
-  $company = view_company();
-?>
-  <a class="brand-block" href="<?= h(view_home_url()) ?>" target="_blank" rel="noopener"
-     title="<?= h($company === '' ? 'What Beeblebrox is' : 'Open ' . $company) ?>">
-    <img class="brand-mark" src="assets/favicon-32.png" width="28" height="28" alt="Beeblebrox">
-    <span class="brand">
-<?php if ($company !== ''): ?>
-      <span class="brand-kicker">Relaying for</span>
-      <span class="brand-company"><?= h($company) ?> <span class="muted">Beeblebrox</span></span>
-<?php else: ?>
-      <span class="brand-kicker">Beeblebrox</span>
-      <span class="brand-company">Webhook proxy</span>
-<?php endif; ?>
-    </span>
-  </a>
+<?php view_brand_block(); ?>
 <?php if ($signed_in): ?>
   <span class="bar-counts">
     <a href="deliveries.php?show=problems" class="count<?= $counts['bad'] ? ' count-live' : '' ?>">
@@ -171,30 +181,15 @@ function view_header($title, $signed_in = false) {
            bbl_env_label() is still what identifies this proxy to the instance, in the
            X-Beeblebrox-Proxy header and in every answer it relays, so a chain with two hops in it
            can be read from either end. That is a different question from what to put on a screen. */ ?>
-  <?php /* The bar's own words, reused rather than paraphrased: "Relaying for" is what this thing does,
-           and a drawer that says it differently reads like a different application. The classes are the
-           bar's too, so the two cannot drift apart in style either.
+  <?php /* The bar's block, not a second telling of it — the mark, the wording and the link, the same
+           in both places.
 
-           The company links to the instance — where the work comes from, and what somebody in this
-           window usually wants to get back to. Its configured address rather than a constructed
-           <company>.beeblebrox.cloud: an instance can be self-hosted anywhere, and a link built from a
-           name would point at a host that may not exist.
-
-           Then the other half of the sentence this application is: what it relays to. The full address
-           rather than the host, because a port and a path are exactly what somebody checks when
-           envelopes are not arriving. */ ?>
+           Then the other half of the sentence this application is: what it relays to. The full
+           address rather than the host, because a port and a path are exactly what somebody checks
+           when envelopes are not arriving. */ ?>
   <div class="drawer-who">
-<?php if (company_name() !== ''): ?>
-    <span class="brand-kicker">Relaying for</span>
-<?php if (instance_base() !== ''): ?>
-    <span class="brand-company"><a href="<?= h(instance_base()) ?>" target="_blank"
-      rel="noopener"><?= h(company_name()) ?></a></span>
-<?php else: ?>
-    <span class="brand-company"><?= h(company_name()) ?></span>
-<?php endif; ?>
-<?php else: ?>
-    <span class="brand-kicker">Beeblebrox</span>
-    <span class="brand-company">Webhook proxy</span>
+    <?php view_brand_block(); ?>
+<?php if (company_name() === ''): ?>
     <span class="muted small">not set up yet</span>
 <?php endif; ?>
 <?php if (worker_base() !== ''): ?>
@@ -216,37 +211,37 @@ function view_header($title, $signed_in = false) {
          where the thumb expects them however many there are. */ ?>
   <div class="drawer-foot">
 <?php foreach ($feet as $item): ?>
-    <a class="drawer-item<?= $item['href'] === $here ? ' current' : '' ?>" href="<?= h($item['href']) ?>">
-      <?= h($item['label']) ?></a>
+      <a class="drawer-item<?= $item['href'] === $here ? ' current' : '' ?>" href="<?= h($item['href']) ?>">
+        <?= h($item['label']) ?></a>
 <?php endforeach; ?>
-  </div>
 <?php /* Which copy this is, where somebody looking for it would look. A number rather than a
          commit because a number can be compared out loud: "you are on 26, the newest is 28". A
          checkout has no number — the release workflow writes it into the archive — and says so
          instead of showing nothing. */ ?>
 <?php $build = bbl_build(); ?>
 <?php $newer = updates_available(); ?>
-  <p class="drawer-version muted small">
+    <p class="drawer-version muted small">
 <?php if ($build['number'] !== null): ?>
-    Build <?= (int)$build['number'] ?><?= $build['built'] !== null
-      ? ', ' . h($build['built']) : '' ?>
+      Build <?= (int)$build['number'] ?><?= $build['built'] !== null
+        ? ', ' . h($build['built']) : '' ?>
 <?php elseif ($build['commit'] !== null): ?>
-    Commit <?= h(substr($build['commit'], 0, 7)) ?>
+      Commit <?= h(substr($build['commit'], 0, 7)) ?>
 <?php else: ?>
-    From a checkout
+      From a checkout
 <?php endif; ?>
-  </p>
+    </p>
 <?php /* Shown only when there is something newer — a field that usually reads "up to date" gets
          looked at twice and never again, and this has to be noticed on the day it appears. */ ?>
 <?php if ($newer !== null): ?>
-  <p class="drawer-update">
-    <a href="<?= h($newer['url']) ?>" target="_blank" rel="noopener">Build <?= (int)$newer['latest'] ?> is out</a>
-  </p>
+    <p class="drawer-update">
+      <a href="<?= h($newer['url']) ?>" target="_blank" rel="noopener">Build <?= (int)$newer['latest'] ?> is out</a>
+    </p>
 <?php endif; ?>
-  <form method="post" action="logout.php" class="drawer-signout">
-    <?= bbl_csrf_field() ?>
-    <button type="submit" class="link">Sign out</button>
-  </form>
+    <form method="post" action="logout.php" class="drawer-signout">
+      <?= bbl_csrf_field() ?>
+      <button type="submit" class="link">Sign out</button>
+    </form>
+  </div>
 </nav>
 <label for="drawer-toggle" class="scrim" aria-hidden="true"></label>
 <?php endif; ?>
