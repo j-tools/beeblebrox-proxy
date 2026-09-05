@@ -158,8 +158,21 @@ function view_header($title, $signed_in = false) {
 
 <?php if ($signed_in): ?>
 <nav class="drawer" aria-label="Main">
+  <?php /* What this is and whose, rather than the hostname it happens to be served under. The host
+           said nothing a person needed: somebody looking at this window knows which address they
+           typed, and 'localhost' is what it reads on the machine where the address is a tunnel or a
+           port forward. The company is the word they actually recognise.
+
+           bbl_env_label() is still what identifies this proxy to the instance, in the
+           X-Beeblebrox-Proxy header and in every answer it relays, so a chain with two hops in it
+           can be read from either end. That is a different question from what to put on a screen. */ ?>
   <div class="drawer-who">
-    <strong><?= h(bbl_env_label()) ?></strong>
+    <strong>Beeblebrox Proxy</strong>
+<?php if (company_name() !== ''): ?>
+    <span class="muted small">for <?= h(company_name()) ?></span>
+<?php else: ?>
+    <span class="muted small">not set up yet</span>
+<?php endif; ?>
     <span class="badge"><?= h(parse_url(worker_base(), PHP_URL_HOST) ?: 'no worker') ?></span>
   </div>
 <?php foreach (view_menu_items() as $item): ?>
