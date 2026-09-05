@@ -166,21 +166,39 @@ function view_header($title, $signed_in = false) {
            bbl_env_label() is still what identifies this proxy to the instance, in the
            X-Beeblebrox-Proxy header and in every answer it relays, so a chain with two hops in it
            can be read from either end. That is a different question from what to put on a screen. */ ?>
+  <?php /* The bar's own words, reused rather than paraphrased: "Relaying for" is what this thing does,
+           and a drawer that says it differently reads like a different application. The classes are the
+           bar's too, so the two cannot drift apart in style either.
+
+           The company links to the instance — where the work comes from, and what somebody in this
+           window usually wants to get back to. Its configured address rather than a constructed
+           <company>.beeblebrox.cloud: an instance can be self-hosted anywhere, and a link built from a
+           name would point at a host that may not exist.
+
+           Then the other half of the sentence this application is: what it relays to. The full address
+           rather than the host, because a port and a path are exactly what somebody checks when
+           envelopes are not arriving. */ ?>
   <div class="drawer-who">
-    <strong>Beeblebrox Proxy</strong>
-<?php /* The company links to the instance, which is where the work comes from. Its own configured
-         address rather than a constructed <company>.beeblebrox.cloud, because an instance can be
-         self-hosted anywhere and a link built from a name would point at a host that may not
-         exist. */ ?>
-<?php if (company_name() !== '' && instance_base() !== ''): ?>
-    <span class="muted small">for <a href="<?= h(instance_base()) ?>" target="_blank"
+<?php if (company_name() !== ''): ?>
+    <span class="brand-kicker">Relaying for</span>
+<?php if (instance_base() !== ''): ?>
+    <span class="brand-company"><a href="<?= h(instance_base()) ?>" target="_blank"
       rel="noopener"><?= h(company_name()) ?></a></span>
-<?php elseif (company_name() !== ''): ?>
-    <span class="muted small">for <?= h(company_name()) ?></span>
 <?php else: ?>
+    <span class="brand-company"><?= h(company_name()) ?></span>
+<?php endif; ?>
+<?php else: ?>
+    <span class="brand-kicker">Beeblebrox</span>
+    <span class="brand-company">Webhook proxy</span>
     <span class="muted small">not set up yet</span>
 <?php endif; ?>
-    <span class="badge"><?= h(parse_url(worker_base(), PHP_URL_HOST) ?: 'no worker') ?></span>
+<?php if (worker_base() !== ''): ?>
+    <span class="brand-kicker">Relaying to</span>
+    <span class="drawer-target"><?= h(worker_base()) ?></span>
+<?php elseif (company_name() !== ''): ?>
+    <span class="brand-kicker">Relaying to</span>
+    <span class="muted small">no worker configured</span>
+<?php endif; ?>
   </div>
 <?php foreach (view_menu_items() as $item): ?>
   <a class="drawer-item<?= $item['href'] === $here ? ' current' : '' ?>" href="<?= h($item['href']) ?>">

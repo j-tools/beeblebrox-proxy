@@ -141,6 +141,14 @@ table.grid th { color: var(--muted); font-weight: 600; font-size: .78rem; text-t
   line-height: 1.2;
   min-width: 0;
 }
+/* The address envelopes are passed to. Wraps rather than truncating: a port or a path cut off is
+   exactly the detail somebody is squinting at when deliveries are not arriving. */
+.drawer-target {
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+  margin-bottom: .15rem;
+}
+
 .brand-kicker { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
 .brand-company {
   font-weight: 600;
