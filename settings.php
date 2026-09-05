@@ -136,10 +136,16 @@ view_flash($error, $notice);
 
 <h2>Locks</h2>
 <div class="card">
-  <p class="small" style="margin:0">Neither of these is required. The worker checks every signature
-     itself — it has to, since it is the one that acts on the envelope — so a proxy that simply
-     forwards is a working setup, not a lax one. What these buy is that a forged envelope is refused
-     on this machine instead of being carried onto the network this exists to keep closed.</p>
+  <p class="small" style="margin:0">This machine is the one deliberately reachable from outside, so
+     these are what keep a forged envelope from being carried onto the network the rest of this exists
+     to keep closed. Refused here, it never touches the worker at all.</p>
+  <p class="small" style="margin:.5rem 0 0">The allow list is worth setting here and nowhere else:
+     your instance calls this from one address, while everything the worker sees arrives from this
+     machine and so tells it nothing.</p>
+  <p class="small" style="margin:.5rem 0 0">Both are optional, and leaving them empty is a working
+     setup rather than a lax one — the worker verifies every signature itself, because it is the one
+     that acts on the envelope. These stop rubbish a step earlier, on the machine where a stranger can
+     reach it.</p>
 </div>
 <div class="card stack">
   <label>Signing secret
