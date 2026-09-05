@@ -4,6 +4,7 @@
 
 require_once __DIR__ . '/html.php';
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/updates.php';
 require_once __DIR__ . '/deliveries.php';
 
 function view_label($value) {
@@ -224,6 +225,7 @@ function view_header($title, $signed_in = false) {
          checkout has no number — the release workflow writes it into the archive — and says so
          instead of showing nothing. */ ?>
 <?php $build = bbl_build(); ?>
+<?php $newer = updates_available(); ?>
   <p class="drawer-version muted small">
 <?php if ($build['number'] !== null): ?>
     Build <?= (int)$build['number'] ?><?= $build['built'] !== null
@@ -234,6 +236,13 @@ function view_header($title, $signed_in = false) {
     From a checkout
 <?php endif; ?>
   </p>
+<?php /* Shown only when there is something newer — a field that usually reads "up to date" gets
+         looked at twice and never again, and this has to be noticed on the day it appears. */ ?>
+<?php if ($newer !== null): ?>
+  <p class="drawer-update">
+    <a href="<?= h($newer['url']) ?>" target="_blank" rel="noopener">Build <?= (int)$newer['latest'] ?> is out</a>
+  </p>
+<?php endif; ?>
   <form method="post" action="logout.php" class="drawer-signout">
     <?= bbl_csrf_field() ?>
     <button type="submit" class="link">Sign out</button>

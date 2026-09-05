@@ -96,7 +96,7 @@ settings.php      all of them, plus the optional locks
 deliveries.php    every envelope that has arrived
 delivery.php      one of them in full — what arrived, what came back
 diagnostics.php   every check, plus what to give the dispatcher
-lib/              settings, security, delivery, the log, layout
+lib/              settings, security, delivery, the log, layout, the version check
 db/schema.sql     three tables; the application creates them itself
 data/             the SQLite file lives here, and must not be served
 tools/            migrate, selftest, password

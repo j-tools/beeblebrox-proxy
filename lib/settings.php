@@ -53,6 +53,12 @@ function bbl_setting_defaults() {
     // Sign-in for these pages. Set on first run.
     'admin_password_hash' => '',
 
+    // The newest build published on GitHub, and when that was last asked. Written by the
+    // update check rather than by a person — they live here because this is where a value
+    // that has to outlive a request lives, not because there is anything to configure.
+    'latest_build'        => '',
+    'latest_checked_at'   => '',
+
     // Which setup questions have actually been answered, as opposed to which settings happen to hold
     // something. Both of the wizard's steps could otherwise look answered before anybody read them.
     'setup_answered'      => '',
