@@ -28,12 +28,12 @@ function bbl_session_store() {
         db_exec('DELETE FROM sessions WHERE id = ?', [$id]);
         return true;
       }
-      db_exec(
-        'INSERT INTO sessions (id, payload, last_active) VALUES (?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET payload = excluded.payload,
-                                         last_active = excluded.last_active',
-        [$id, $payload, time()]
-      );
+      // Insert then update, rather than an upsert that needs SQLite 3.24 — see settings_set() for
+      // why this application cannot require that version.
+      db_exec('INSERT OR IGNORE INTO sessions (id, payload, last_active) VALUES (?, ?, ?)',
+        [$id, $payload, time()]);
+      db_exec('UPDATE sessions SET payload = ?, last_active = ? WHERE id = ?',
+        [$payload, time(), $id]);
       return true;
     },
     function ($id) {

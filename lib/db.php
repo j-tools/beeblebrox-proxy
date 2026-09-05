@@ -49,16 +49,25 @@ function db() {
   $pdo->exec('PRAGMA busy_timeout = 5000');
   $pdo->exec('PRAGMA foreign_keys = ON');
 
-  // Saving a setting and writing a session both use INSERT ... ON CONFLICT DO UPDATE, which SQLite
-  // learned in 3.24 (2018). An older library parses everything else here happily and then fails on
-  // the first setting anybody saves, which is a long way from the cause. It is the library PHP was
-  // built against rather than anything installed separately, so this is asked once, here.
+  // Write-ahead logging arrived in SQLite 3.7.0 (2010) and is the oldest thing here that matters:
+  // PRAGMA journal_mode silently reports the mode it kept rather than failing, so a library without
+  // it would leave every read blocking behind every write with nothing saying why.
+  //
+  // Nothing else in this application needs a modern library. It deliberately does not use ON CONFLICT
+  // DO UPDATE (3.24), because the box a company already has facing the internet is exactly where an
+  // old one lives — Debian 9 ships 3.16 with a PHP this supports.
+  //
+  // The message names the interpreter, because the usual cause of a version surprise is the web
+  // server running a different PHP from the one somebody installed.
   $sqlite = $pdo->query('SELECT sqlite_version()')->fetchColumn();
-  if (version_compare($sqlite, '3.24', '<')) {
+  if (version_compare($sqlite, '3.7.0', '<')) {
+    $ini = php_ini_loaded_file();
     throw new RuntimeException(
-      "This PHP is built against SQLite {$sqlite}, and this needs 3.24 or newer — settings are " .
-      'saved with ON CONFLICT DO UPDATE, which older versions cannot parse. A newer PHP is the ' .
-      'usual fix, since the library comes with it.');
+      'This copy cannot open its database: PHP ' . PHP_VERSION . ' here is built against SQLite ' .
+      "{$sqlite}, and 3.7.0 or newer is needed for write-ahead logging. The PHP answering this " .
+      'request is ' . (PHP_BINARY !== '' ? PHP_BINARY : php_sapi_name()) . ', reading ' .
+      ($ini !== false ? $ini : 'no php.ini') . ' — if that is not the PHP you installed, the web ' .
+      'server is loading a different one.');
   }
 
   if ($fresh) {

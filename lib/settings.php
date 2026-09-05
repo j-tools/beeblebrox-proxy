@@ -108,13 +108,21 @@ function setting_set($name, $value) {
   if ($is_secret && (string)$value !== '') {
     $value = secrets_encrypt($value);
   }
-  // updated_at is set here rather than by the table, because SQLite has no ON UPDATE CURRENT_TIMESTAMP
-  // — its default only applies to the INSERT, and the conflict path is an update.
+  // Two statements rather than one upsert. ON CONFLICT DO UPDATE needs SQLite 3.24 (2018), and this
+  // is meant to install on whatever box a company already has facing the internet — Debian 9 ships
+  // 3.16 with a PHP this supports, so requiring the upsert made the stated PHP floor unreachable.
+  // INSERT OR IGNORE has worked since 3.0.
+  //
+  // Insert first, then update: the row certainly exists by the time the update runs, so a second
+  // writer arriving between the two cannot leave the older value in place. The other order can.
+  //
+  // updated_at is set here rather than by the table, because SQLite has no ON UPDATE
+  // CURRENT_TIMESTAMP — its default only applies to the INSERT.
+  db_exec('INSERT OR IGNORE INTO settings (name, value, is_secret) VALUES (?, ?, ?)',
+    [$name, (string)$value, $is_secret ? 1 : 0]);
   db_exec(
-    "INSERT INTO settings (name, value, is_secret) VALUES (?, ?, ?)
-     ON CONFLICT(name) DO UPDATE SET value = excluded.value, is_secret = excluded.is_secret,
-                                     updated_at = datetime('now')",
-    [$name, (string)$value, $is_secret ? 1 : 0]
+    "UPDATE settings SET value = ?, is_secret = ?, updated_at = datetime('now') WHERE name = ?",
+    [(string)$value, $is_secret ? 1 : 0, $name]
   );
   settings_raw(true);
 }

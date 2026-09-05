@@ -31,9 +31,19 @@ function checks_run($deep = true) {
         'config.local.example.php and fill it in. Without one, the address printed here as the one ' .
         'to give the dispatcher is a guess.');
 
+  // Which PHP is answering, and which SQLite came with it. Printed always, not only when something is
+  // wrong: the usual cause of a version surprise is the web server loading a different PHP from the
+  // one somebody installed, and that is invisible until the two are named side by side.
+  $ini = php_ini_loaded_file();
+  $out[] = check('pass', 'PHP ' . PHP_VERSION . ' as ' . php_sapi_name(),
+    (PHP_BINARY !== '' ? PHP_BINARY . ' — ' : '') .
+    ($ini !== false ? 'reading ' . $ini : 'no php.ini loaded'));
+
   try {
     db();
     $out[] = check('pass', 'The database is there', $cfg['db_file']);
+    $out[] = check('pass', 'SQLite ' . db()->query('SELECT sqlite_version()')->fetchColumn(),
+      'The library this PHP was built with. 3.7.0 or newer is needed, for write-ahead logging.');
     $tables = db_count("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'
                          AND name IN ('settings','deliveries','sessions')");
     $out[] = $tables === 3
