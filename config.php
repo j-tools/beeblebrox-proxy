@@ -69,9 +69,17 @@ function bbl_public_site() {
 // This exists because "am I on the newest one?" is unanswerable from a zip install otherwise: the
 // information ships in the archive and nothing was reading it.
 function bbl_build() {
+  // BUILD is written into the archive by the release workflow — how many commits main had, which
+  // is a number people can compare out loud where a commit hash only says "different".
+  $number = null;
+  $build_file = __DIR__ . '/BUILD';
+  if (is_file($build_file) && preg_match('/^\s*(\d+)\s*$/', (string)file_get_contents($build_file), $m)) {
+    $number = (int)$m[1];
+  }
+
   $file = __DIR__ . '/VERSION';
   if (!is_file($file)) {
-    return ['commit' => null, 'built' => null];
+    return ['number' => $number, 'commit' => null, 'built' => null];
   }
   $text = (string)file_get_contents($file);
   $commit = null;
@@ -85,7 +93,7 @@ function bbl_build() {
   if (preg_match('/^built\s+(\d{4}-\d{2}-\d{2})\s*$/mi', $text, $m)) {
     $built = $m[1];
   }
-  return ['commit' => $commit, 'built' => $built];
+  return ['number' => $number, 'commit' => $commit, 'built' => $built];
 }
 // A human label for which proxy this is, used in the page title and in the answer this sends back to
 // the instance, so a chain with two hops in it can be read from either end.
