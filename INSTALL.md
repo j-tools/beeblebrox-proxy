@@ -243,10 +243,42 @@ public by design that grows, so it is worth an eye.
 
 ## Upgrading
 
+Two ways in, matching the two ways this is installed.
+
+**If you cloned it**, that is the whole thing:
+
 ```bash
 git pull
 timeout 120 php tools/migrate.php
 ```
 
-`tools/migrate.php` applies anything in `db/migrations/` once each and records it. There is no
-service to restart — the next request runs the new code.
+**If you unpacked a zip**, there is no `git pull` to run. Download the current one from
+<https://github.com/j-tools/beeblebrox-proxy/releases/latest> and swap it in:
+
+```bash
+# beside the install, not on top of it
+unzip beeblebrox-proxy.zip -d /tmp/upgrade
+
+# the two things that are yours and are not in the archive
+cp /path/to/beeblebrox-proxy/config.local.php /tmp/upgrade/beeblebrox-proxy/
+cp /path/to/beeblebrox-proxy/data/*.sqlite    /tmp/upgrade/beeblebrox-proxy/data/
+
+# swap, keeping the old one until the new one has answered a page
+mv /path/to/beeblebrox-proxy /path/to/beeblebrox-proxy.old
+mv /tmp/upgrade/beeblebrox-proxy /path/to/beeblebrox-proxy
+timeout 120 php /path/to/beeblebrox-proxy/tools/migrate.php
+```
+
+Then open Diagnostics. The **Build** line names the commit this copy came from, so comparing it with
+the releases page is how you know the swap took.
+
+**Unpacking over the top works and is quicker, with one catch worth knowing.** Your configuration and
+your database survive it — `config.local.php` and `data/proxy.sqlite` are not in the archive, and the release
+workflow refuses to publish one that contains either. What an overwrite cannot do is *remove* a file
+that no longer exists in the new version, so a page or a library dropped from the release stays on
+disk and stays reachable. Swapping directories is the version that cannot leave anything behind.
+
+Either way the files are the deployment: there is no service to restart, and the next request runs
+the new code. Whoever the web server runs as still needs to be able to write to `data/`, so check that
+if the new copy was unpacked by a different account than the old one.
+`tools/migrate.php` applies anything in `db/migrations/` once each and records it.
