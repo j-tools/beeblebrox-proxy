@@ -168,7 +168,14 @@ function view_header($title, $signed_in = false) {
            can be read from either end. That is a different question from what to put on a screen. */ ?>
   <div class="drawer-who">
     <strong>Beeblebrox Proxy</strong>
-<?php if (company_name() !== ''): ?>
+<?php /* The company links to the instance, which is where the work comes from. Its own configured
+         address rather than a constructed <company>.beeblebrox.cloud, because an instance can be
+         self-hosted anywhere and a link built from a name would point at a host that may not
+         exist. */ ?>
+<?php if (company_name() !== '' && instance_base() !== ''): ?>
+    <span class="muted small">for <a href="<?= h(instance_base()) ?>" target="_blank"
+      rel="noopener"><?= h(company_name()) ?></a></span>
+<?php elseif (company_name() !== ''): ?>
     <span class="muted small">for <?= h(company_name()) ?></span>
 <?php else: ?>
     <span class="muted small">not set up yet</span>
