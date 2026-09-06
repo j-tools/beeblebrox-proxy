@@ -98,7 +98,9 @@ $counts = delivery_counts_today();
 $last = delivery_last_at();
 $recent = deliveries_recent(12);
 
-view_header('Dashboard', true);
+// No page name: this is the front page of the application, so the tab says what it is and
+// nothing else.
+view_header('', true);
 view_flash($error, $notice);
 ?>
 

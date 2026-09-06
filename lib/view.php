@@ -105,10 +105,14 @@ function view_asset_version() {
   return $token;
 }
 function view_head($title) {
+  // The dashboard passes no page name. It is this application's own front page, so its name on
+  // its own is the whole of what a tab should say — "Dashboard" in front of it named the part
+  // somebody is least likely to be looking for in a row of tabs.
+  $name = 'Beeblebrox Proxy';
   ?>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= h($title) ?> — Beeblebrox Proxy</title>
+  <title><?= h($title === '' ? $name : $title . ' — ' . $name) ?></title>
   <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="assets/favicon-180.png">
   <link rel="stylesheet" href="assets/style.css?v=<?= h(view_asset_version()) ?>">
@@ -197,20 +201,19 @@ function view_header($title, $signed_in = false) {
 
 <?php if ($signed_in): ?>
 <nav class="drawer" aria-label="Main">
-  <?php /* What this is and whose, rather than the hostname it happens to be served under. The host
-           said nothing a person needed: somebody looking at this window knows which address they
-           typed, and 'localhost' is what it reads on the machine where the address is a tunnel or a
-           port forward. The company is the word they actually recognise.
-
-           bbl_env_label() is still what identifies this proxy to the instance, in the
-           X-Beeblebrox-Proxy header and in every answer it relays, so a chain with two hops in it
-           can be read from either end. That is a different question from what to put on a screen. */ ?>
   <?php /* The bar's block, not a second telling of it — the mark, the wording and the link, the same
-           in both places.
+           in both places. What this is and whose, rather than the hostname it happens to be served
+           under: the host said nothing a person needed, since somebody looking at this window knows
+           which address they typed, and 'localhost' is what it reads on the machine where that
+           address is a tunnel or a port forward. The company is the word they actually recognize.
 
            Then the other half of the sentence this application is: what it relays to. The full
            address rather than the host, because a port and a path are exactly what somebody checks
-           when envelopes are not arriving. */ ?>
+           when envelopes are not arriving.
+
+           bbl_env_label() is untouched by any of this — it identifies this proxy to the instance, in
+           the X-Beeblebrox-Proxy header and in every answer it relays, so a chain with two hops in
+           it can be read from either end. A different question from what to put on a screen. */ ?>
   <div class="drawer-who">
     <?php view_brand_block(); ?>
 <?php if (company_name() === ''): ?>
